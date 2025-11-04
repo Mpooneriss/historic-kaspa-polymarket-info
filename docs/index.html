@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historical Polymarket Markets with "Kaspa"</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        a { color: blue; text-decoration: none; }
+        #loading { color: green; }
+        #error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Historical Polymarket Markets Containing "Kaspa" in Title</h1>
+    <p id="loading">Loading markets...</p>
+    <div id="error"></div>
+    <table id="marketsTable" style="display: none;">
+        <thead>
+            <tr>
+                <th>Question/Title</th>
+                <th>Slug</th>
+                <th>End Date</th>
+                <th>Closed Time</th>
+                <th>Link</th>
+            </tr>
+        </thead>
+        <tbody id="marketsBody"></tbody>
+    </table>
+    <p id="noResults" style="display: none;">No historical markets found with "Kaspa" in the title.</p>
+
+    <script>
+        const API_BASE = 'https://gamma-api.polymarket.com';
+        const LIMIT = 100;
+        let allMarkets = [];
+
+        async function fetchMarkets(offset = 0) {
+            try {
+                const response = await fetch(`${API_BASE}/markets?closed=true&limit=${LIMIT}&offset=${offset}&include_tag=true`);
+                if (!response.ok) throw new Error('API request failed');
+                const markets = await response.json();
+                return markets;
+            } catch (error) {
+                document.getElementById('error').textContent = `Error fetching markets: ${error.message}`;
+                return [];
+            }
+        }
+
+        async function loadAllClosedMarkets() {
+            let offset = 0;
+            let hasMore = true;
+            document.getElementById('loading').textContent = 'Fetching all historical markets...';
+
+            while (hasMore) {
+                const markets = await fetchMarkets(offset);
+                if (markets.length === 0) break;
+                allMarkets = allMarkets.concat(markets);
+                offset += LIMIT;
+                hasMore = markets.length === LIMIT;
+            }
+
+            document.getElementById('loading').style.display = 'none';
+            filterAndDisplay();
+        }
+
+        function filterAndDisplay() {
+            const kaspaMarkets = allMarkets.filter(market => 
+                market.question && market.question.toLowerCase().includes('kaspa')
+            );
+
+            const table = document.getElementById('marketsTable');
+            const tbody = document.getElementById('marketsBody');
+            const noResults = document.getElementById('noResults');
+
+            if (kaspaMarkets.length === 0) {
+                noResults.style.display = 'block';
+                return;
+            }
+
+            noResults.style.display = 'none';
+            tbody.innerHTML = '';
+            kaspaMarkets.forEach(market => {
+                const row = tbody.insertRow();
+                row.insertCell(0).textContent = market.question;
+                row.insertCell(1).textContent = market.slug || 'N/A';
+                row.insertCell(2).textContent = market.endDate || 'N/A';
+                row.insertCell(3).textContent = market.closedTime || 'N/A';
+                const linkCell = row.insertCell(4);
+                if (market.slug) {
+                    const link = document.createElement('a');
+                    link.href = `https://polymarket.com/event/${market.slug}`;
+                    link.textContent = 'View Market';
+                    linkCell.appendChild(link);
+                } else {
+                    linkCell.textContent = 'N/A';
+                }
+            });
+            table.style.display = 'table';
+        }
+
+        // Note: The trades endpoint was not used as it provides trade data without market titles. Instead, the Gamma API is used for market metadata.
+        // If you specifically need trades data, additional integration would be required to map market IDs to titles.
+
+        loadAllClosedMarkets();
+    </script>
+</body>
+</html>
